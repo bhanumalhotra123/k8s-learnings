@@ -1,0 +1,207 @@
+By default pods are non isolated they accept traffic from any source.
+
+Say you create clusterIP for a pod, now the pod can be called by any other pod in the cluster.
+
+If you create a node-port it can be accessed by anyone in the world, NO SECURITY!
+
+Pods become isolated by having a NetworkPolicy that selects them.
+
+By this you can make your pods lil secure:
+ 
+Example: 
+I- Ingress
+E- Egress
+
+
+Request ---->Web Application (I-80, E-5000)< -----API Server (I-5000, E-3306)<-----Database(I-3306)
+
+
+Web application should only accept on port 80(Ingress) and you can also define some IPs you should accept requests from.
+
+After accepting the request you send it to your API server, say API server accepts on port 5000 and now API server talks to database on port 3306 of database pod.
+
+
+
+NetworkPolicies do not conflict, they are additive. If any policy or policies select a pod, the pod is restricted to what is allowed by the union of those policies ingress/ egress rules. 
+Thus, order of evaluations does not affect the policy result.
+
+Which means a single pod can have multiple NetworkPolicies.
+
+
+
+
+Behaviour of to and from selectors
+
+There are 4 kinds of selectors that can be specified in an ingress from section or egress to section:
+
+1.podSelector (say you have two pods, 1 db and 1 web-app in the same namespace. You want to allow only this web-app pod to send requests to db pod)
+Basically it tells the selectd pod from which pod i want to accept the request or send the request.
+
+
+2.namespaceSelector(should send requests to or accept from a particular name space)
+
+
+3.ipBlock(to which i can send or from which i can accept, which ones i should not accept.)
+
+ 
+
+kubectl run hello-web --labels app=hello \
+  --image=gcr.io/google-samples/hello-app:1.0 --port 8080 --expose
+this will create a pod a service(clusterIP if not defined)
+
+
+
+kubectl apply -f hello-allow-from-foo.yml
+
+
+Now the network policy hello-allow-from-foo.yml will be applied to the pod we just created
+
+
+kubectl run --label app=foo --image=alpine --restart=Never -rm -i -t test-1
+
+You create this pod with app=foo and you get inside it using -it command
+wget -qO- --timeout http://hello-web:8080  Success!!
+you are able to reach to the pod with app=hello label
+
+
+
+Now let us create a pod with some other label than foo
+
+
+kubectl run --label app=other --image=alpine --restart=Never -rm -i -t test-1
+
+now use: wget -qO- --timeout http://hello-web:8080 Fails!!
+
+We won't be able to ping
+
+------------------------------------------------------------------
+
+now let us say we create two pods with labels hell and hello-2 both exposed on 8080
+
+kubectl run hello-world --labes app=hello ---image=any --port 8080 --expose
+
+kubectl run hello-world --labes app=hello-2 ---image=any --port 8080 --expose
+
+
+
+
+kubectl apply -f foo-allow-to-hello.yml
+
+Now we will send request from the pod will app=foo for whom we have defined egress rules.
+It can only send request to app=hello-web and not to app=hello-web-2 pods
+
+kubectl run -l app=foo --image=alpine --rm -i -t --restart=Never test-3
+
+Validate that the Pod can establish connections to hello-web:8080:
+
+wget -qO- --timeout=2 http://hello-web:8080
+Validate that the Pod cannot establish connections to hello-web-2:8080:
+
+wget -qO- --timeout=2 http://hello-web-2:8080
+
+
+
+---------------------------------------------------------------------------------------
+
+
+Combination of podSelector and namespaceSelector
+
+now both these things have to be satified to successfuly network with the pod it is applied to
+
+
+This is the pod which will have this network policy attached to it: It only accepts from namespace with label team=operations and pod with label monitoring
+
+kubectl run hello-web --labels app=web \
+  --image=gcr.io/google-samples/hello-app:1.0 --port 8080 --expose
+
+
+
+
+
+kubectl create namespace other
+
+Now we will label this namespace:
+
+kubectl label namespace/other team=operations
+
+
+Attach the network policy: kubectl apply -f podSelec_nameSelec.yml
+
+
+
+Now we will create a pod in this name space and another pod which doesnt have same namespace
+
+
+
+
+Query this web server from default namespace, without labelling the application type=monitoring, observe it is blocked:
+
+$ kubectl run --generator=run-pod/v1 test-$RANDOM --rm -i -t --image=alpine -- sh
+If you don't see a command prompt, try pressing enter.
+/ # wget -qO- --timeout=2 http://web.default
+wget: download timed out
+
+(traffic blocked)
+
+
+Query this web server from default namespace, labelling the application type=monitoring, observe it is blocked:
+
+kubectl run --generator=run-pod/v1 test-$RANDOM --labels type=monitoring --rm -i -t --image=alpine -- sh
+If you don't see a command prompt, try pressing enter.
+/ # wget -qO- --timeout=2 http://web.default
+wget: download timed out
+
+(traffic blocked)
+Query this web server from other namespace, without labelling the application type=monitoring, observe it is blocked:
+
+$ kubectl run --generator=run-pod/v1 test-$RANDOM --namespace=other --rm -i -t --image=alpine -- sh
+If you don't see a command prompt, try pressing enter.
+/ # wget -qO- --timeout=2 http://web.default
+wget: download timed out
+
+(traffic blocked)
+Query this web server from other namespace, labelling the application type=monitoring, observe it is allowed:
+
+kubectl run --generator=run-pod/v1 test-$RANDOM --namespace=other --labels type=monitoring --rm -i -t --image=alpine -- sh
+If you don't see a command prompt, try pressing enter.
+/ # wget -qO- --timeout=2 http://web.default
+<!DOCTYPE html>
+<html>
+<head>
+...
+(traffic allowed)
+
+
+
+Now the case where even if one out of podSelector and namespaceSelector is satisfied you shoula allow the network.
+
+The only differnce between AND and OR is for OR you mention the rules as list.
+
+
+
+
+AND
+  ingress:
+    - from:
+      - namespaceSelector:     # chooses all pods in namespaces labelled with team=operations
+          matchLabels:
+            team: operations  
+        podSelector:           # chooses pods with type=monitoring
+          matchLabels:
+            type: monitoring
+
+
+
+
+OR
+  ingress:
+    - from:
+      - namespaceSelector:     # chooses all pods in namespaces labelled with team=operations
+          matchLabels:
+            team: operations  
+      - podSelector:           # chooses pods with type=monitoring
+          matchLabels:
+            type: monitoring 
+
+
+Now also check the network_policies.yml for more learning on this. (In that we use all these things at once i.e ingress,egress,podSelector,namespaceSelector,ipblock)
