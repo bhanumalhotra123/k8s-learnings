@@ -1,0 +1,35 @@
+Old version(Green)
+Newer Version(Blue)
+
+Both are deployed at the same time.
+
+Only 1 version of the application is accessible by the user 
+other version is accessible to the QA environment by using direct port forwarding.
+
+Once the new version is tested properly.
+We scale it up
+First we re-write the service to the newer version pods
+We scale down the previous versions
+
+Pros:
+instant rollout/rollback(as we just need to direct the service)
+avoid versioning issue, change the entire cluster state in one go
+
+
+Cons:
+requires double resources
+proper testing should be done 
+handling stateful applications can be hard
+
+
+
+kubectl apply -f app_v1.yml
+kubectl apply -f app_v2.yml
+
+We create both the versions. v2 will be in testing. v1 will be give to the users.
+
+Now say sign off is given to redirect from v1 to v2.
+
+kubectl patch service my-app -p {"spec": {"selector":{"version":"v2.0.0"}}}
+
+kubectl describe svc my-app

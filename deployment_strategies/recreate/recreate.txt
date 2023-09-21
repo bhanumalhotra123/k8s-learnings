@@ -1,0 +1,14 @@
+Pros:
+Application state entirely renewed
+
+Cons: downtime that depends on both shutdown and boot duration of the application.
+
+We see down time in this case. 
+
+when we do kubectl apply -f app_v1.yml 
+It deployes v1 with the service
+
+Now when we do kubectl apply -f app_v2.yml
+
+all the v1 pods goes down and then v2 comes up.
+

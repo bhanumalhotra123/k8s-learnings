@@ -1,0 +1,63 @@
+What is deployment?
+
+Deployment have multiple replicas of application and replaces any pod which goes down with a new one.
+
+Shorter and more frequent deployments offer the following benefits:
+
+1. Reduce time to market
+2. Customers can take advantage of features faster.
+3. Customer feedback flows back into product team faster.
+4. Higher developer morale
+
+Need to pick a deployment strategy which lowers the risk. (Depends!)
+
+1.Rolling Update
+Standard and default deployment in k8s. It works slowly one by one replacing the pod of previous version of the pods with the newer version
+without taking your cluster down.
+
+Readiness probe starts to kill down the old pods.
+
+If there is problem with rolling update the deployment can be stopped without bringing old cluster down.
+
+Pros:
+Version is slowly released across instances.
+Convenient for stateful applications
+
+Cons:
+rollout/rollback can take time
+Supporting multiple APIs is hard.
+no control over traffic
+
+
+Now in k8s master 
+
+kubectl apply app_v1.yml
+
+and opening a duplicate node of master we do: watch kubectl get po
+
+you will see deployment for v1 is created
+
+
+now do kubectl apply -f app_v2.yml
+
+
+
+Deployment/StatefulSet Name: It's crucial to keep the name of the Deployment or StatefulSet the same in the newer manifest if you want to perform an update on the existing resource. If you change the name, Kubernetes will create a new Deployment or StatefulSet, and it won't be considered an update of the existing one.
+
+Pod Selector Labels: While you don't need to keep all labels the same, the labels used for selecting pods (usually specified under the .spec.selector.matchLabels field in the Deployment or StatefulSet manifest) should remain consistent. These labels determine which pods are managed by the Deployment or StatefulSet.
+
+
+
+Now for rolling back:
+
+kubectl apply -f app_v1.yml
+
+OR 
+
+kubectl rollout undo deploy my-app
+
+
+
+For the first time when you deploy it takes time to create the replicasets.
+2nd time it is faster as it just redirects to the replicasets created previously.
+

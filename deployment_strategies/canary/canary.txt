@@ -1,0 +1,28 @@
+Canary deployment 
+
+Pros:
+version is released for a subset of users
+convinient for error rate and performance monitoring
+fast rollback
+
+Cons:
+Slow rollout
+fine tuned traffic distribution can be expensive
+
+
+Say we have 5 replicas running, we for example create 1 of new and 4 of old.
+
+
+Once version 2 is tested we delete pods of version1 and scale the other.
+
+
+Service for both the version pods is same and sends requests to both.
+
+kubectl apply -f app_v1.yml
+
+kubectl scale --replicas=4 deployment my-app-v1
+
+kubectl apply -f app_v2.yml
+
+Once it is doing fine. We scale down the v1 and scale up v2.
+
