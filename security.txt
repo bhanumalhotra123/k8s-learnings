@@ -1,0 +1,308 @@
+1. Kubernetes Security Primitives
+
+Controlling access to api-server
+
+Who can access? 
+Files - Username and Passwords
+Files - Username and Tokens
+Certificates
+External Authentication providers - LDAP
+Service Accounts
+
+What can they do?
+RBAC Authorization
+ABAC Authorization
+Node Authorization
+Webhook Mode
+
+
+
+All communication in cluster b/w the various components, such as etcd cluster, kube controller manager, scheduler, kubelet
+is secured using TLS encryption.
+
+What about communication between the applications within the cluster?
+
+By default all the pods can access all other pods within the cluster. You can restrict using network policies.
+
+
+
+
+
+AUTHENTICATION
+
+Multiple nodes, multiple parts, users like admins, developers then we have 3rd party applications and end users.
+
+Securing access to cluster using authentication mechanisms
+
+Security of end users who access the applications deployed on cluster is managed by applications internally.
+
+Our focus is on 
+
+Users: Admins and Developers
+Service accounts: 3rd party apps
+
+Kubernetes doesn't manage user accounts natively. It relies on external source like file with user details, ldap, certificates etc.
+
+So you can't manage users and see the list of users.
+
+Security Accounts? Yes it can 
+
+
+____________________________________________________
+
+
+For now we will focus on Users i.e Admins using kubectl commands and Developers using curl https://kube-server-ip:6443/
+
+All these requests goes to kube-api server.
+Kube-api server authenticates the requests before processing it.
+
+How does it authenticate?
+
+1. Static Password file
+2. Static token file
+3. Certificates
+4. Identity Services
+
+
+Static Password files
+a csv file with 3 coloumns: passwd, username and user id
+
+we pass the file name to api server
+
+in kube-apuserver.service add:
+--basic-auth-file=user-details.csv
+and restart
+
+
+If you are setting it up using kubeadm you must edit kube-apiserver.yaml file.
+Kubeadm will automatically restart api-server once you update the file.
+
+To authenticate using basic credentials while accessing the api-server
+
+curl -v -k https://master-node-ip:6443/api/v1/pods -u "user1:password123"
+
+In csv file we can have 4th coloumn with group details. It is used to assign users to specific groups.
+
+
+
+
+ 
+Static token file
+Token | USER | USERID | GROUP
+
+--token-auth-file=user-token-details.csv
+
+curl -v -k https://master-node-ip:6443/api/v1/pods --header "Authorization: Bearer KpjCVbI7rCFAsncjcw"
+
+This static file way is not recommended.
+Consider volume mount while providing the auth file in a kubeadm setup 
+Setup Role Based Authorization for new users.
+
+
+
+
+TLS Certificates
+Goals: What are TLS Certificates?
+How does Kubernetes use Certificates?
+How to generate them?
+How to configure then?
+How to view them?
+How to troublesoot issues related to Certificates?
+
+
+
+Basics of certificates:
+
+TLS Certificates:
+
+A certificate is used to create trust between two parties.
+
+User and server
+
+User --> Online banking application
+
+Hackers can retrive the creds sent in simple text format.Not safe!
+
+Encryption using keys.
+We add random numbers and alphabets and encrypt it in a format that cannot be recognized.
+The data is sent to server.Server decrypt using keys.
+
+But key has to be sent to the server over internet. Hacker can sniff the key sent.
+
+Single key: Symmetric encryption
+
+
+Asymmetric encryption: Pair of keys: private and public keys.
+
+
+Encrypt the data with public key (this can be shared)
+Decrypt using private key.
+
+
+User -------------------------------------> Server
+ssh-keygen                                  cat ~/.ssh/authorized_keys
+id_rsa id_rsa.pub(public lock)
+
+Now you block all the access to the server accept using the public lock.
+
+Now lock is public any one can break through. But it can only be opened using Private key.
+
+ssh -i id_rsa user1@server1
+
+
+
+How do you secure more than 1 server? 
+create copies of public lock and use on as many servers as you want.
+Can use same ssh.
+
+Other users need access?
+Crate another doors to put locks on.
+copy there public lock under /.ssh/authorized_keys
+
+
+
+Now let us come back to our bank server example
+
+To securely transfer the 'symmetric key' [which encrypts data] from the client to the server
+we use assymetric encryption.
+
+We create public lock and private key on the server.
+
+On server
+openssl genrsa -out mybank.key 1024
+openssl rs -in my-bank.key -pubout > mybank.pem
+
+ls
+my-bank.key mybank.key
+
+
+Now assume 
+
+hacker(gets the public lock from the server)                                   
+user(gets the public lock from the server)                                        server
+
+
+Users browser encrypts the symmetric key with the public key sent by the server to it.
+Now the hacker can't break [decrypt] the symmetric key if user send it to the server because the private key is just with the server.
+
+So user first encrypts the data with symmetric key and then that symmetric key is encrypted using a public key which is given by the server to it.
+and then it sends it to the server.
+
+Server uses the private key to decrypt the public key and retrives the symmetric key.
+
+
+Now hacker will try other things!
+
+Hacker builds a similar website like your bank website
+He generates his own set of public and private keys.
+tweaks the network to get your request on his page.
+You send the request, you take hackers public key to encrypt your symmetric key with it and send it to the hacker created website.
+
+HACKED!!
+
+What if there was a way you can check if the key public key sent by the server is authentic or not?
+
+It sends a certificate and public key in it 
+all the names the bank wants to be refered by should be mentioned in alternative name section of the certificate.
+
+But now what if Hacker creates his own certificate?
+
+how to know it is legitimate
+
+Who signed and issued the certificate?
+
+Self signed [NOT SAFE]
+
+Certification Authority:
+Symantec, digicert, globalsign etc
+
+You generate Certificate Signing Request using a key you generated earlier and domain name:
+
+
+ON SERVER:
+openssl req -new -key my-bank.key -out my-bank.csr
+  -subj "/C=US/ST=CA/O=MyOrg,Inc./CN=mydomain.com"
+
+ls 
+my-bank.key my-bank.csr
+
+now you send this request to CA and you get back a signed Certificate
+
+HACKER will fail during validation at CA. CA make sure you are the owner of that domain.
+
+How do browsers know if CA was fake or valid one??
+
+say by someone who says they are symantec but are not.
+
+CA themselves have there private key and public key.
+CA use private key to sign the certificate
+Browsers have public key of all the CAs builtin
+
+The browser uses the public of the CA to validate the CA [that the certificate signed is by a valid CA]
+They have it under trusted root certification authorities.
+
+These help us with public websites
+
+but cant be useful for internal private CA.
+
+Private CA server internally deploy.
+Public key of CA deployed on all employees browser.
+
+
+
+
+
+Public Key Infrastructure
+
+Summary of this:
+We have seen why we will want to encrypt the messages being sent over a network.
+
+To encrypt message we use asymmetric encryption with a pair of private and public keys.
+
+Admin uses pair of private and public key to encrypt ssh connectivity to the server.
+
+The server uses a pair of private and public key to encrypt HTTPS traffic but for this server further sents certificate sigining request to a CA, 
+The CA uses its private key to sign the CSR [remember all users have copy of CA public key]
+The signed certificate is sent back the to the server. Server configures the web-app with the signed certificate.
+
+Whenever a user access the web-app the server first sends the certificate with its public key.
+The users browser reads the certificate and uses CA's public key to validate and retrives the servers public key.
+It then generates a symmetric key which will be used for all further communication.
+The symmetric key is encrypted using servers public key and send to the server.
+Server uses its private key to decrypt and retrive the symmetric key.
+Once the user establishes trust with the website it uses username and password.
+
+
+But one thing to notice is the server doesn't know the client is who say they are.
+It can be hacker having theft creds of a user.
+
+What can the server do?
+Server can reqeust a certificate from the client.
+Client will have to generate the keys and a signed certificate from a valid CA
+Client sends the certificate to server to assure the server.
+
+TLS client servers are generally under the hood if they are.
+
+It is not fixed out of private key and public key which encrypts the data.
+The rule is which ever encrypts cannot decrypt.
+
+Generally:
+
+Certificates with Public Key 
+*.crt or *.pem
+
+server.crt
+server.pem
+client.crt
+client.pem
+
+
+Certificate with Private key
+*.key or *-key.pem
+
+server.key
+server-key.pem
+client.key
+client-key.pem
+
+
