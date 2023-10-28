@@ -306,3 +306,85 @@ client.key
 client-key.pem
 
 
+
+
+
+
+TLS in kubernetes
+
+Securing Kubernetes using TLS certificates
+Server Certificates on servers
+Client certificates
+root certificates on ca servers
+
+
+
+Now k8s cluster have master and worker nodes
+
+Communication b/w these should be encrypted
+
+admin working with controlplane and api servers and further api server with other parts needs to be secured. 
+
+1. all various services in cluster to use server certificates
+2. all clients to use client certificates.
+
+
+
+
+Let us start with kube-api server
+
+API server exposes an HTTPS service that other components, as well as external users use to manage the k8s cluster.
+So it is a server and requires certificates to secure communication with clients.
+
+apiserver.cert and apiserver.key 
+these names can differ
+
+Anything with .crt extention is the certificate and .key extension is the private key
+
+Etcd server   etcdserver.crt etcdserver.key
+
+kubelet server  kubelet.crt  kubelet.key
+exposes an https api endpoint
+
+
+Now let us look at client components.
+
+It is admins who access the kube-api server through kubectl rest api
+
+
+Admin [admin.crt admin.key] --> kubectl rest api --> kube-api server
+
+The scheduler talks to the kube-apiserver to look for pods that require scheduling and then get the api server to schedule the pods on the right worker nodes.
+
+The scheduler is a client that accesses the kube-apiserver
+So scheduler needs to validate its identity using a client certificate scheduler.crt and scheduler.key
+
+The kube controller manager is another client to kube-api server
+same is for kube-proxy
+
+
+Kube-api server is the only one talking to etcd server
+and it acts as a client to it. So either it can use same cert and key or it can generate a new one to communicate to etcd
+
+kube-api server also talks to each of the kubelet server on each node that is how it monitors the worker nodes.
+
+
+Too many certificates
+client certificates
+server certificates
+
+How to generate all these certificates?
+We need a CA 
+
+and k8s requires you to have atleast 1 CA for your cluster, you can have more.
+You can have more than 1 
+
+say 1 for all the components in cluster and another 1 for etcd.
+
+For now we will stick to 1
+CA have its own pair of certificate and key.
+CA.crt CA.key
+
+
+
+
