@@ -387,4 +387,34 @@ CA.crt CA.key
 
 
 
+To generate certificates there are many tools available like Easyrsa, openssl, cfssl
+
+Generate keys
+openssl genrsa -out ca.key 2048
+ca.key
+
+Certified signing request
+openssl req -new -key ca.key -subj "/CN=KUBERNETES-CA" -out ca.csr
+ca.csr
+
+sign signatures
+openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+ca.crt
+
+It is self-signed by the CA using its own private key that it generated in the first step.
+
+
+
+Admin user
+
+generate keys
+openssl genrsa -out admin.key 2048
+admin.key
+
+CSR
+openssl req -new -key admin.key -subj \ 
+       "/CN=kube-admin" -out admin.csr
+
+
+
 
