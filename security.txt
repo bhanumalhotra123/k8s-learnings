@@ -387,7 +387,14 @@ CA.crt CA.key
 
 
 
+
+
+
+
 To generate certificates there are many tools available like Easyrsa, openssl, cfssl
+
+
+We will start with CA certificates
 
 Generate keys
 openssl genrsa -out ca.key 2048
@@ -413,8 +420,156 @@ admin.key
 
 CSR
 openssl req -new -key admin.key -subj \ 
-       "/CN=kube-admin" -out admin.csr
+       "/CN=kube-admin" -out admin.csr               It doesn't really have to be kube-admin
+
+admin.csr
+
+Sign Certificate
+openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out ad
+
+admin.ca
+
+This time we specify CA certificate and CA key
+We are sigining our certificate with the CA key pair
+That makes it a valid certificate in the cluster
+
+This is the certificate admin will use to authenticate to k8s cluster.
+
+
+The user account needs to be identified as an admin user and not just as a general user.
+You do that by addming group name in certificate
+
+In this case, a group named system masters exists on k8s with admin privileges
+
+
+We now have admin cert with admin priv.
 
 
 
+Same for client certificates.
+
+Now kube-scheduler is part of control plane so its name must be prefixed with keyword system
+SYSTEM KUBE-SCHEDULER
+
+same for controller manager and kube proxy
+
+
+
+
+What do you do with certificates?
+
+example admin certificacte?
+
+
+curl https://kube-apiserver:6443/api/v1/pods \ 
+ --key admin.key --cert admin.crt
+ --cacert.crt
+
+
+
+The signed certificate is then output
+
+
+
+OR Kube-config have all these added 
+
+
+
+They all need public certificate copy of CA root
+
+
+
+Server Side certificate
+
+ETCD servers
+can be deployed on diff servers as a cluster
+
+we must generate additional certificates for peers 
+Once the certificates are generated specify them while starting the ETCD server
+there are key and cert file options.
+
+There are other options available for specifying the peer certificates
+
+It requires the CA root certificate that verify client connecting to ETCD server are valid
+
+
+
+API SERVER
+
+Famous guy!
+
+Kube api-server
+
+kubernetes.default.svc.cluster.local
+ip of host or pod running it
+
+all the names that are given to api-server must be present in the certificate generated for it.
+
+openssl gensra -out apiserver.key 22048
+apiserver 
+
+openssl req -new -key apiserver.key -subj \ "/CN=kube-apiserver" -out apiserver.csr
+apiserver.csr
+
+
+How do you specify all the alternative names?
+you must create openssl config file
+
+openssl.cnf 
+
+add all the names in subjectAltName section
+
+now while creating the csr
+
+openssl req -new -key apiserver.key -subj \
+ "/CN=kube-apiserver" -out apiserver.csr -config openssl.cnf
+
+Finally sign the certificate with CA certificate and key
+
+
+
+Now the location of these certificates is passed in Kube API servers executable or service configuration.
+
+First ca file needs to be passed in as every componenet needs the CA certificate to verify its clients.
+
+Then we provide the API server certificates under the TLS cert options.
+
+We then specify the client certificates used  by kube-api server to connect with ETCD server with the CA file.
+
+Finally kube-api client cert for kubelets.
+
+
+
+Kubelet server running on each worker node to manage the node.
+
+That is what the api server talks to
+To monitor the node and send info what pods to schedule on the node.
+
+Therefore you need cert and key pair for each node.
+node01 node02 node03
+
+specify them in kubelet-config.yaml
+first ca certificate 
+then provide kubelet node certificate for each node.
+
+
+kubelet needs client certificate to talk to api-server.
+
+api server needs to know which node is authenticated and what permissions are needed.
+It requires nodes to have right names and proper format
+
+system node nodename
+
+nodes must be added to group name system nodes for right permissions.
+
+
+
+
+
+
+View Certificate Details:
+
+
+
+ 
 
