@@ -570,6 +570,62 @@ nodes must be added to group name system nodes for right permissions.
 View Certificate Details:
 
 
+You are asked to perform a health check of all the certificates in the entire cluster
 
- 
 
+ there are different ways a cluster is setup and certificates setup also differes accordingly.
+
+
+The hard way!  
+cat /etc/systemd/system/kube-apiserver.service
+
+If you are deploying k8s cluster by scratch you generate all teh certificates by yourself.
+
+Or else  you use kubeadm 
+it automatically generating and configuring the cluster for you.
+kubeadm deploys these as pods
+
+cat /etc/kubernetes/manifests/kube-apiserver.yaml 
+In this command section have all the list of certificates
+command 
+
+Take each certificate and look inside to find more about it.
+
+for api-server:
+
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -t
+
+This will decode the cert
+
+Start from section
+Subject
+
+then check
+Subject Alternative Name: It should include all
+
+Then check the validity section
+and then check issuer of the certificate [CA]
+
+follow same procedure for checking all other 
+
+
+
+When you run into issues you should first inspect logs
+If you setup cluster from scratch  and services are configured as native services in the os.
+
+Inspect service logs
+journalctl -u etcd.service -l
+
+
+
+
+If using kubeadm
+
+kubectl logs etcd-master
+
+If say core components etcd or api-server are down.
+
+You have to go one level down and check logs using docker
+
+docker ps -a     from here get the container_id
+docker logs container_id
