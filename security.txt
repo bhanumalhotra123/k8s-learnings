@@ -629,3 +629,135 @@ You have to go one level down and check logs using docker
 
 docker ps -a     from here get the container_id
 docker logs container_id
+
+
+
+
+
+_________________________________________
+
+How to manage certificates and certificate api
+
+We setup
+CA servers and certificates 
+
+I have admin cert and key
+
+Another admin comes.
+Creates a private key and csr and sends me the csr 
+
+I get it signed by CA server private key and root certificate.
+
+And i send the certificate back to new 
+
+
+Certificate Expires
+
+again the same process
+
+
+What is CA?
+It is just the pair of key and the certificate files we have generated.
+These files needs to be protected
+Super safe
+
+As of now CA is on master node
+
+Kubeadm do the same
+
+Right now csr is done manualy
+we need automation
+
+Through an api call
+
+K8s api object
+1. Create CertificateSigningRequest Object
+2. Review request
+3. Approve Requests
+4. Share Certs to users
+
+
+
+User creates a key
+openssl genrsa -out jane.key 2048
+jane.key
+
+openssl req -new -key jane.key -subj "/CN=jane" -out jane.csr
+jane.csr
+
+
+now admin creates a CertificateSigningRequest object
+jane-csr.yaml
+apiVersion:
+kind:
+metadata:
+   name: jane
+spec:
+  groups:
+  - system:authenticated
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+  request:
+      base64 encoded csr text file here
+
+kubectl get csr
+
+kubectl certificate approve jane
+jane approved!
+
+Kubernetes signs the certificate using the CA key pairs and generates the certificate for the user
+
+
+kubectl get csr jane -o yaml
+
+
+echo "LS0...." | base64 --decoded
+
+
+Who does all of this for us?
+
+Controller manager handles this!!
+CSR-Approving  CSR Signing
+
+
+
+cat /etc/kubernetes/manifests/kube-controller-manager.yaml
+
+spec:
+  containers:
+  - command:
+    - kube-controller-manager
+    - --address=127.0.0.1
+    - --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
+    - --cluster-signing-key-file=/etc/kubernetes/pki/ca.key
+
+
+
+
+
+
+
+KubeConfig
+
+say my cluster is called my-kube-playground
+
+curl https://my-kube-playground:6443/api/v1/pods \
+ --key admin.key
+ --cert admin.crt
+ --cacert ca.crt
+
+Validated by apiserver to authenticate the user
+
+kubectl get pods 
+    --server my-kube-playground:6443
+    --client-key admin.key
+    --certificate-authority
+
+better option:
+
+$HOME/.kube.config
+
+kubectl get pods
+ 
