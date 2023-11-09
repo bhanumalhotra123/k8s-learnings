@@ -1,0 +1,33 @@
+Create a CertificateSigningRequest object with the name akshay with the contents of the akshay.csr file
+
+
+As of kubernetes 1.19, the API to use for CSR is certificates.k8s.io/v1.
+
+Please note that an additional field called signerName should also be added when creating CSR. For client authentication to the API server we will use the built-in signer kubernetes.io/kube-apiserver-client.
+
+
+
+
+
+Use this command to generate the base64 encoded format as following: -
+
+cat akshay.csr | base64 -w 0
+
+
+Finally, save the below YAML in a file and create a CSR name akshay as follows: -
+
+---
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: akshay
+spec:
+  groups:
+  - system:authenticated 
+  request: <Paste the base64 encoded value of the CSR file>
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth
+
+
+kubectl apply -f akshay-csr.yaml
