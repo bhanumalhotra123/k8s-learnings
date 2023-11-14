@@ -1,0 +1,48 @@
+[olqa@u-olbatch-111 ~]$ ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 00:50:56:b6:10:76 brd ff:ff:ff:ff:ff:ff
+
+
+S1
+ip addr add 192.169.1.10/24 dev eth
+
+S2
+ip addr add 192.169.1.11/24 dev eth
+
+
+ping  192.169.1.11
+
+
+
+Now two network
+
+N1                                                                                                                N2
+Device1              Switch         Device2            192.168.1.1Router192.168.2.1                Device1      Switch         Device2
+192.168.1.10        192.168.1.0    192.168.1.1                                                                192.168.2.0
+                   
+
+
+
+Router have 2ips, 1 from each network
+
+[Bhanu.Malhotra@u-jbapp-111 ~] route
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+10.200.33.0     *               255.255.255.0   U     0      0        0 eth0
+default         10.200.33.254   0.0.0.0         UG    0      0        0 eth0
+
+
+ip route add 192.168.2.0/24 via 192.168.1.1
+
+this will add an entry to route table
+
+
+
+Say your router needs access to internet
+
+ip route add 172.217.194.0/24 via 192.168.2.1
+
+
+Also
